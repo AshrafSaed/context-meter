@@ -4,6 +4,7 @@ import type { EngineInterface, Register } from 'claude-code'
 import type { Fill, Limit } from '../types'
 
 const fill = atom({ plugin: 'context-meter', key: 'fill' } as const, null)
+const diag = atom({ plugin: 'context-meter', key: 'diag' } as const, null)
 
 const WIDTH = 16
 // At or above HARD every ordinary prompt is held; at or above SOFT only a long
@@ -32,7 +33,7 @@ const left = (ms: number) => {
   return h > 0 ? `${h}h${m}m` : `${m}m`
 }
 
-async function refresh($: EngineInterface) {
+async function refreshInner($: EngineInterface) {
   const { context, rateLimits } = await $.session.usage()
   const limits: Limit[] = rateLimits.map(r => ({
     kind: r.kind,
@@ -54,6 +55,16 @@ async function refresh($: EngineInterface) {
   }))
   const worst = Math.max(context.percent ?? 0, ...limits.map(l => l.percentUsed))
   $.ui.status(context.percent === null ? undefined : `ctx ${context.percent}% · max ${Math.round(worst)}%`)
+}
+
+async function refresh($: EngineInterface) {
+  try {
+    await refreshInner($)
+    await update($, diag, () => null)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    await update($, diag, () => msg.slice(0, 80))
+  }
 }
 
 export const register: Register = on => {
@@ -119,8 +130,18 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const f = await read($, fill)
-    if (e.props.hasSurvey || f === null || f.percent === null) {
+    if (e.props.hasSurvey) {
       return next(e)
+    }
+    if (f === null || f.percent === null) {
+      const d = await read($, diag)
+      const { Box: B, Text: T } = $.ui.resolve(e)
+      return (
+        <B>
+          <T color="yellow">ctx · context-meter 0.3.1 active · </T>
+          <T dimColor>{d === null ? 'waiting for usage data' : `error: ${d}`}</T>
+        </B>
+      )
     }
 
     const now = await $.clock.now()

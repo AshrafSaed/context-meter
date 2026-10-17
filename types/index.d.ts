@@ -10,6 +10,6 @@ export type Fill = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'context-meter': { fill: Fill | null }
+    'context-meter': { fill: Fill | null; diag: string | null }
   }
 }
