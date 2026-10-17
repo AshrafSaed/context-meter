@@ -1,0 +1,1 @@
+{ "name": "context-meter", "version": "0.3.0", "description": "Live context and token-limit meter with colors and a guard that holds prompts near the limit.", "types": "./types/index.d.ts" }
